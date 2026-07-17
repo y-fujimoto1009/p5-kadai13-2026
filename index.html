@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>第13回課題 | p5.js 学生作品展示</title>
+  <style>
+    :root{--ink:#152238;--muted:#65748b;--line:#dce3eb;--paper:#fff;--accent:#1769aa;--bg:#eef2f6}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif}
+    header{position:sticky;top:0;z-index:10;background:#ffffffef;backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+    .top{max-width:1480px;margin:auto;padding:15px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+    h1{font-size:clamp(1.05rem,2vw,1.4rem);margin:0;letter-spacing:.02em}.count{color:var(--muted);font-size:.84rem;margin-right:auto}
+    .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}input,button{font:inherit}
+    input{width:min(270px,70vw);border:1px solid #cbd5e1;border-radius:9px;padding:8px 11px;background:white}
+    button,.button{border:1px solid #cbd5e1;background:white;color:var(--ink);border-radius:9px;padding:8px 11px;cursor:pointer;text-decoration:none}
+    button:hover,.button:hover{border-color:#8aa2bc;background:#f8fafc}button:disabled{opacity:.4;cursor:default}
+    main{max-width:1480px;margin:auto;padding:20px 22px 34px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:18px}
+    .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 3px 12px #24405d0d}
+    .card-head{height:48px;padding:8px 12px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line)}
+    .number{display:grid;place-items:center;width:27px;height:27px;border-radius:7px;background:#e7f0f8;color:#14517f;font-weight:700;font-size:.75rem}
+    .identity{min-width:0;line-height:1.25}.identity strong{font-size:.84rem}.identity span{display:block;color:var(--muted);font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .open{margin-left:auto;color:#4d647b;text-decoration:none;font-size:.76rem;padding:6px 7px;border-radius:6px}.open:hover{background:#eef2f6}
+    iframe{display:block;width:100%;height:310px;border:0;background:white}.bad iframe{background:#f8fafc}
+    .pager{display:flex;align-items:center;justify-content:center;gap:9px;margin:24px 0 0}.pages{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+    .pages button.active{background:var(--accent);border-color:var(--accent);color:white}.empty{text-align:center;padding:70px 20px;color:var(--muted)}
+    .auto{font-size:.78rem;color:var(--muted);display:flex;gap:6px;align-items:center;white-space:nowrap}.auto input{width:auto}
+    @media(max-width:600px){.top,main{padding-left:12px;padding-right:12px}.count{width:100%;order:3}.tools{width:100%}input{flex:1;width:auto}iframe{height:260px}}
+  </style>
+</head>
+<body>
+<header><div class="top">
+  <h1>第13回課題｜p5.js 学生作品展示</h1><span class="count" id="count"></span>
+  <div class="tools"><input id="search" type="search" placeholder="学籍番号・氏名で検索" aria-label="作品を検索"><label class="auto"><input id="auto" type="checkbox">10秒ごとに自動送り</label></div>
+</div></header>
+<main><div class="grid" id="grid"></div><div class="pager" id="pager"></div></main>
+<script src="gallery-data.js"></script>
+<script>
+const perPage=10; const params=new URLSearchParams(location.search); let page=Math.max(1,Number(params.get('page'))||1); let query=''; let timer;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function filtered(){const q=query.trim().toLowerCase();return q?GALLERY.filter(x=>(x.id+' '+x.name).toLowerCase().includes(q)):GALLERY}
+function setPage(n){page=n; const u=new URL(location);n===1?u.searchParams.delete('page'):u.searchParams.set('page',n);history.replaceState(null,'',u);render()}
+function render(){const list=filtered(),total=Math.max(1,Math.ceil(list.length/perPage));page=Math.min(page,total);const shown=list.slice((page-1)*perPage,page*perPage);
+ document.querySelector('#count').textContent=`${list.length}作品${query?'（検索結果）':''}・${page} / ${total}ページ`;
+ document.querySelector('#grid').innerHTML=shown.length?shown.map(x=>`<article class="card ${x.status==='ok'?'':'bad'}"><div class="card-head"><span class="number">${String(x.order).padStart(2,'0')}</span><div class="identity"><strong>${esc(x.id)}</strong><span>${esc(x.name)}</span></div><a class="open" href="${encodeURI(x.path)}" target="_blank" rel="noopener">拡大 ↗</a></div><iframe src="${encodeURI(x.path)}" title="${esc(x.id+' '+x.name)}"></iframe></article>`).join(''):`<p class="empty">該当する作品がありません。</p>`;
+ const nums=Array.from({length:total},(_,i)=>`<button class="${i+1===page?'active':''}" onclick="setPage(${i+1})">${i+1}</button>`).join('');
+ document.querySelector('#pager').innerHTML=list.length>perPage?`<button onclick="setPage(${Math.max(1,page-1)})" ${page===1?'disabled':''}>← 前</button><div class="pages">${nums}</div><button onclick="setPage(${Math.min(total,page+1)})" ${page===total?'disabled':''}>次 →</button>`:'';
+ window.scrollTo({top:0,behavior:'instant'});restartAuto()}
+function restartAuto(){clearTimeout(timer);if(document.querySelector('#auto').checked){timer=setTimeout(()=>{const total=Math.max(1,Math.ceil(filtered().length/perPage));setPage(page>=total?1:page+1)},10000)}}
+document.querySelector('#search').addEventListener('input',e=>{query=e.target.value;page=1;render()});document.querySelector('#auto').addEventListener('change',restartAuto);render();
+</script></body></html>
